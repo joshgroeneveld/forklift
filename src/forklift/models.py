@@ -249,11 +249,7 @@ class Pallet(object):
     def configure_standalone_logging(self, level=logging.INFO):
         '''set up logger for running the pallet as a standalone script outside of the forklift process
         '''
-        logging.basicConfig(
-            format='%(levelname)s %(asctime)s %(lineno)s %(message)s',
-            datefmt='%H:%M:%S',
-            level=level
-        )
+        logging.basicConfig(format='%(levelname)s %(asctime)s %(lineno)s %(message)s', datefmt='%H:%M:%S', level=level)
         self.log = logging
 
     def __repr__(self):
@@ -384,13 +380,15 @@ class Crate(object):
         else:
             message_level = ''
 
-        return {'name': self.destination_name,
-                'result': self.result[0],
-                'crate_message': self.result[1] or '',
-                'message_level': message_level,
-                'source': self.source,
-                'destination': self.destination,
-                'was_updated': self.was_updated()}
+        return {
+            'name': self.destination_name,
+            'result': self.result[0],
+            'crate_message': self.result[1] or '',
+            'message_level': message_level,
+            'source': self.source,
+            'destination': self.destination,
+            'was_updated': self.was_updated()
+        }
 
     def is_table(self):
         '''returns True if the crate defines a table
@@ -465,7 +463,7 @@ class Crate(object):
         '''Override for better logging. Use with %r
         '''
 
-        return "source: [{}] source_workspace: [{}] destination: [{}]".format(self.source, self. source_workspace, self.destination)
+        return "source: [{}] source_workspace: [{}] destination: [{}]".format(self.source, self.source_workspace, self.destination)
 
 
 class Changes(object):
