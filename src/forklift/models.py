@@ -9,17 +9,21 @@ A module that contains the model classes for forklift
 import logging
 from inspect import getsourcefile
 from os.path import dirname, join
+from pathlib import Path
 from time import perf_counter
+from uuid import uuid4
 
 from xxhash import xxh64
 
 import arcpy
 
 from . import config, seat
+from .core import garage
 from .messaging import send_email
 
 names_cache = {}
 describes_cache = {}
+readers_gdb = str(Path(garage) / 'readers.gdb')
 
 
 class Pallet(object):
@@ -500,3 +504,119 @@ class Changes(object):
         self._deletes = attribute_hashes
 
         return self._deletes
+
+
+class Reader(object):
+    '''A base class for an object that reads data and pushes it to a table suitable for being used as a source for Crates
+    '''
+
+    def __init__(self, pallet_name, schema):
+        '''
+        pallet_name: string
+        schema: Schema object
+        '''
+        self.log = logging.getLogger('forklift')
+        self.schema = schema
+        self.table_name = f'{pallet_name}-{self.__class__.__name__}-{str(uuid4())[:6]}'
+        self.fetch_data_function = None
+
+
+    def _build_table(self):
+        if len(self.schema.fields) == 0:
+            raise Exception(f'cannot build {self.table_name} with empty schema')
+
+        self.log.debug('creating temporary table for reader %s', table_name)
+
+        table = None
+        if self.schema.geometry_type is None:
+            table = arcpy.management.CreateTable(readers_gdb, self.table_name)
+        else:
+            table = arcpy.management.CreateFeatureClass(
+                readers_gdb,
+                self.table_name,
+                geometry_type=self.schema.geometry_type,
+                spatial_reference=self.schema.spatial_reference,
+            )
+
+        for field in self.schema.fields:
+            if len(field.definition) == 2:
+                field_type, length = field.definition
+            else:
+                field_type = field.definition[0]
+                length = None
+
+            arcpy.management.AddField(
+                table,
+                field.to_name,
+                field_type=field_type,
+                field_length=length,
+            )
+
+    def get_data(self):
+        self._build_table()
+        self.fetch_data_function()
+        #: url to a service
+        #: - json
+        #: - csv
+        #: - xml
+        #: esri stuff
+        #: - map service /mapserver/0
+        #: - feature service /featureservice
+        #: - hosted layer /featureserver/0
+        #: - geodatabase (file/enterprise)
+        #: - shapefile
+        #: - geopackage
+        #: other
+        #: - ftp content
+        #: - google drive
+        #: - google sheets
+
+        #: connection
+        #: authentication
+
+        #: etl features
+        #: filter
+        #: sort
+        #: skip fields
+        #: rename fields
+        #: combine fields
+        #: convert types
+
+        #: paging
+
+        #: overridden by super class to get data
+        #: returns: path to fgdb table
+        pass
+
+
+class Schema(object):
+
+    def __init__(self, fields):
+        '''
+        fields: array of Field objects
+        '''
+        self.fields = fields
+
+    def set_spatial(self, geometry_type, spatial_reference):
+        '''
+        geometry_type: string (POINT, MULTIPATCH, MULTIPOINT, POLYGON, POLYLINE)
+        spatial_reference: arcpy.SpatialReference object
+        '''
+        self.sr = spatial_reference
+        self.geometry_type = geometry_type
+
+
+class Field(object):
+
+    def __init__(self, from_name, to_name, definition, action=None):
+        """
+        from_name: the number or string of the foreign field name or index in delimited text
+        to_name: the name of the new field
+        definition: a tuple containing the field type and optional length
+            Allowed field type values: TEXT, FLOAT, DOUBLE, SHORT, LONG, DATE, BLOB, RASTER, GUID
+        action: a function to execute over the fields data
+        """
+        self.from_name = from_name
+        self.to_name = to_name
+        self.definition = definition
+        self.action = action
