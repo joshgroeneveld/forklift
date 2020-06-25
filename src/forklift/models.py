@@ -504,6 +504,28 @@ class Changes(object):
         return self._deletes
 
 
+class FeatureServiceReader(Reader):
+
+    def __init__(self, url):
+        schema = get_schema_from_esri_feature_service(url)
+        super().__init__(schema)
+
+    def get_data(self):
+        arcpy.FeatureClassToFeatureClass()
+        pass
+
+
+
+reader = FeatureServiceReader('url')
+reader.schema = [field for field in reader.schema if field.name not in []]
+field = reader.get_field_from_schema('name')
+field.action = lambda x: x
+reader.set_field_from_schema(field)
+reader.set_spatial('POINT', 4326)
+
+Crate(destination_name='SureSites', get_data=reader.get_data, destination_workspace='<full path>broadband.gdb')
+
+
 class Reader(object):
     '''A base class for an object that reads data and pushes it to a table suitable for being used as a source for Crates
     '''
